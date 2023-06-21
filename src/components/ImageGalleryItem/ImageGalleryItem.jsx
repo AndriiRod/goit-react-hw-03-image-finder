@@ -1,15 +1,15 @@
 import { GalleryItem, GalleryItemImage } from './ImageGalleryItem.styled';
 
-const ImageGalleryItem = ({ otherProperties }) => {
+const ImageGalleryItem = ({ otherProperties, onOpenModal }) => {
   const { tags, webformatURL, largeImageURL } = otherProperties;
+
+  const handleClick = () => {
+    onOpenModal(largeImageURL);
+  };
 
   return (
     <GalleryItem>
-      <GalleryItemImage
-        src={webformatURL}
-        alt={tags}
-        data-large={largeImageURL}
-      />
+      <GalleryItemImage src={webformatURL} alt={tags} onClick={handleClick} />
     </GalleryItem>
   );
 };

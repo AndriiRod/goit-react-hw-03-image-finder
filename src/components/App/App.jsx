@@ -6,6 +6,7 @@ import Searchbar from 'components/Searchbar/';
 import ImageGallery from 'components/ImageGallery/';
 import Loader from 'components/Loader/';
 import LoadMoreBtn from 'components/Button/';
+import Modal from 'components/Modal/Modal';
 
 import { Sections } from './App.styled';
 
@@ -23,11 +24,14 @@ class App extends Component {
     searchRequest: '',
     images: [],
     status: Status.IDLE,
+    showModal: false,
+    selectedImage: '',
     page: 1,
+    maxPage: 1,
+    perPage: 12,
   };
 
   componentDidUpdate(_, prevState) {
-    console.log('ffff');
     const { searchRequest, page } = this.state;
     if (searchRequest !== prevState.searchRequest || page !== prevState.page) {
       this.setState({ status: Status.PENDING });
@@ -41,6 +45,8 @@ class App extends Component {
         return {
           searchRequest: input,
           images: [],
+          page: 1,
+          maxPage: 1,
         };
       return null;
     });
@@ -59,33 +65,49 @@ class App extends Component {
   };
 
   makeRequest = async () => {
+    const { searchRequest, page, perPage, maxPage } = this.state;
     try {
-      const response = await API.searchPicture(
-        this.state.searchRequest,
-        this.state.page
-      );
-      if (response.data.total === 0) {
+      if (page > maxPage) {
+        throw new Error('There are no more images for this request.');
+      }
+      const response = await API.searchPicture(searchRequest, page, perPage);
+      if (response.total === 0) {
         throw new Error('No matches found');
       }
+      if (page === 1) {
+        this.setState({
+          maxPage: Math.ceil(response.totalHits / perPage),
+        });
+      }
       this.setState({ status: Status.RESOLVED });
-      this.setStateNewImages(response.data.hits);
+      this.setStateNewImages(response.hits);
     } catch (error) {
       this.setState({ status: Status.REJECTED });
       toast.warning(error.message);
     }
   };
 
+  toggleModal = imageUrl => {
+    this.setState(prevState => ({
+      showModal: !prevState.showModal,
+      selectedImage: imageUrl || '',
+    }));
+  };
+
   render() {
-    const { images, status } = this.state;
+    const { images, status, showModal, selectedImage } = this.state;
     return (
       <Sections>
         <Searchbar enterNewSearchValue={this.setStateNewRequestValue} />
-        <ImageGallery images={images} />
+        <ImageGallery images={images} onOpenModal={this.toggleModal} />
         {status === Status.PENDING && <Loader />}
         {status === Status.RESOLVED && (
           <LoadMoreBtn handleClick={this.setStateUploadImages} />
         )}
         <ToastContainer theme="colored" />
+        {showModal && (
+          <Modal closeModal={this.toggleModal} selectedImage={selectedImage} />
+        )}
       </Sections>
     );
   }
