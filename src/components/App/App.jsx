@@ -16,6 +16,7 @@ const Status = {
   IDLE: 'idle',
   PENDING: 'pending',
   RESOLVED: 'resolved',
+  COMPLETED: 'completed',
   REJECTED: 'rejected',
 };
 
@@ -27,11 +28,12 @@ class App extends Component {
     showModal: false,
     selectedImage: '',
     page: 1,
-    maxPage: 1,
+    maxPage: 0,
     perPage: 12,
   };
 
   componentDidUpdate(_, prevState) {
+    console.log('asss');
     const { searchRequest, page } = this.state;
     if (searchRequest !== prevState.searchRequest || page !== prevState.page) {
       this.setState({ status: Status.PENDING });
@@ -40,47 +42,55 @@ class App extends Component {
   }
 
   setStateNewRequestValue = input => {
-    this.setState(prevState => {
-      if (input !== prevState.searchRequest)
-        return {
-          searchRequest: input,
-          images: [],
-          page: 1,
-          maxPage: 1,
-        };
-      return null;
+    if (input === this.state.searchRequest) {
+      toast.info('Images for this query are already displayed');
+      return;
+    }
+    this.setState({
+      searchRequest: input,
+      images: [],
+      page: 1,
+      maxPage: 0,
     });
   };
 
-  setStateNewImages = newImages => {
-    this.setState(prevState => ({
-      images: [...prevState.images, ...newImages],
-    }));
+  setStateAddNewElement = newImages => {
+    this.setState(
+      prevState => ({
+        images: [...prevState.images, ...newImages],
+        status: Status.RESOLVED,
+      }),
+      () => {
+        const { maxPage, page } = this.state;
+        if (maxPage === page) {
+          this.setState({
+            status: Status.COMPLETED,
+          });
+        }
+      }
+    );
   };
 
-  setStateUploadImages = () => {
+  setStateIncrementPageCounter = () => {
     this.setState(prevState => ({
       page: prevState.page + 1,
     }));
   };
 
   makeRequest = async () => {
-    const { searchRequest, page, perPage, maxPage } = this.state;
+    const { searchRequest, page, perPage } = this.state;
     try {
-      if (page > maxPage) {
-        throw new Error('There are no more images for this request.');
-      }
       const response = await API.searchPicture(searchRequest, page, perPage);
       if (response.total === 0) {
         throw new Error('No matches found');
       }
+
       if (page === 1) {
         this.setState({
           maxPage: Math.ceil(response.totalHits / perPage),
         });
       }
-      this.setState({ status: Status.RESOLVED });
-      this.setStateNewImages(response.hits);
+      this.setStateAddNewElement(response.hits);
     } catch (error) {
       this.setState({ status: Status.REJECTED });
       toast.warning(error.message);
@@ -102,12 +112,12 @@ class App extends Component {
         <ImageGallery images={images} onOpenModal={this.toggleModal} />
         {status === Status.PENDING && <Loader />}
         {status === Status.RESOLVED && (
-          <LoadMoreBtn handleClick={this.setStateUploadImages} />
+          <LoadMoreBtn handleClick={this.setStateIncrementPageCounter} />
         )}
-        <ToastContainer theme="colored" />
         {showModal && (
           <Modal closeModal={this.toggleModal} selectedImage={selectedImage} />
         )}
+        <ToastContainer theme="colored" />
       </Sections>
     );
   }
